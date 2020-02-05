@@ -1,0 +1,77 @@
+---
+title: "Rozdział 4 - Przetwarzanie danych - ćwiczenia"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analiza statystyczna opisowa pliku _crim_hom_soff.tsv_
+
+1. Wczytanie i transformacja pliku csv _crim_hom_soff.tsv_.
+
+```{r Wczytanie pliku}
+
+rm(list=ls())
+library(dplyr)
+library(tidyr)
+Dane<-read.table("./Dane/crim_hom_soff.tsv",header = T,
+                 dec=",",sep = "\t",encoding = "UTF-8",stringsAsFactors = F)
+colnames(Dane)<-sub("X","",colnames(Dane))
+Kol1<-Dane[1]
+Dane <- Dane %>% select(-1)
+Dane<- Dane %>% mutate_if(is.character,as.numeric)
+Kol1<-Kol1 %>% separate(1,c("Przestępstwo","Typ","Płeć","Jednostka","Kraj"),sep=",",convert = T)
+Kol1<-Kol1 %>% mutate_if(is.character,as.factor)
+Dane<-bind_cols(Kol1,Dane)
+
+```
+
+2. Przeksztalcenie na postać wąską
+
+```{r Przekształcenie do postaci wąskiej}
+
+
+Dane2<-gather(Dane,Rok,Wartość,'2008':'2017')
+Dane2<-Dane2 %>% mutate_at("Rok",as.numeric)
+Dane2<- Dane2 %>% filter(Jednostka=="P_HTHAB",Typ=="PER_VICT",Przestępstwo=="ICCS03011",Płeć!="T")
+Dane2<- Dane2 %>% filter(complete.cases(Dane2))
+```
+3. Statystyki
+
+```{r Statystyki}
+tabela1<-Dane2 %>% group_by(Kraj) %>% summarise(suma=sum(Wartość)) %>%
+  arrange(desc(suma)) %>% mutate(miejsce=rank(rev(suma))) %>%
+  filter(miejsce<=6 | Kraj=="PL") 
+
+tabela2<-Dane %>% group_by(Kraj) %>% 
+filter(Jednostka=="P_HTHAB",Typ=="PER_VICT",Przestępstwo=="ICCS03011",
+                         Płeć %in% c("F","M")) %>% 
+  select(c(Kraj,'2008':'2017')) %>% summarise_each(sum)
+średnia<-round(sum(Dane2$Wartość) /nlevels(Dane2$Kraj),2)
+zestawienie <-tabela1 %>% left_join(tabela2,by="Kraj")
+library(knitr)
+kable (zestawienie)
+
+```
+
+4. Wykres
+
+```{r Wykresy}
+
+library(ggplot2)
+
+ggplot() + 
+  geom_bar(data=zestawienie,mapping=aes(y=suma,x=reorder(Kraj,-suma),fill=Kraj),stat="identity") +
+  theme(legend.position = "") + xlab("Kraj") + geom_hline(yintercept = średnia)+
+  ylab("Ilość gwałtow na 100tys. mieskanców")+
+  geom_text(aes(x=c(3,7),y=c(średnia+100,średnia+100),label=c("Średnia ilość gwałtów w Europie liczona na każdy kraj",paste(średnia))))+
+  geom_text(data=zestawienie,mapping = aes(x=Kraj,y=-100,label=paste("miejsce",miejsce,sep=" ")))
+
+```
+

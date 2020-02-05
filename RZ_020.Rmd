@@ -1,0 +1,30 @@
+---
+title: "Generowanie dokumentacji w RStudio"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Wyświetlanie wyników obliczeń
+W tej sekcji można zobaczyć, jak wyświetlane są wyniki obliczeń.
+
+## Kod programu R
+
+```{r Podsumowanie danych}
+summary(women)
+```
+## Kod wpleciony w tekst
+Kobiety w __USA__ mają średni wzrost _`r mean(women$height)*2.54 ` cm_
+
+# Prezentacja wykresów
+
+```{r Histogram wzrostu}
+library(ggplot2)
+ggplot(data=women)+geom_boxplot(aes(y=height*2.54))+ylab("Wzrost [cm]")
+
+```
+
+

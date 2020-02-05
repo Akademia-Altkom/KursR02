@@ -1,0 +1,129 @@
+---
+title: "Rozdział 5 - Analiza statystyczna - ćwiczenia"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analiza statystyczna opisowa pliku _03 - analiza płac.csv_
+
+1. Wczytanie i transformacja pliku csv _03 - analiza płac.csv_.
+
+```{r Wczytanie pliku}
+
+rm(list=ls())
+library(dplyr)
+library(tidyr)
+Dane<-read.table("./Dane/03 - analiza płac.csv",header = T,
+                 dec=",",sep = ";",encoding = "UTF-8")
+colnames(Dane)[1]<-"Płeć"
+colnames(Dane)[5]<-"Płaca"
+tbl_df(head(Dane))
+
+```
+
+2. Statystyka opisowa.
+
+```{r Statystyka opisowa}
+
+Dane %>% group_by(Wykształcenie,Płeć) %>% 
+  summarize(
+    temp=list(c(Count=n(),
+                round(summary(Płaca),2),
+                "St dev"=round(sd(Płaca),2)))) %>%  
+    unnest_wider(temp)
+
+```
+
+## Weryfikacja hipotez statystycznych pliku _03 - analiza płac.csv_
+
+1. Test na normalność rozkładów płacy dla kobiet i mężczyzn.
+
+```{r Test na normalność rozkładów płacy dla kobiet i mężczyzn}
+
+wynik<-Dane %>% group_by(Płeć) %>% 
+  summarize(
+    temp=list(c(round(as.numeric(shapiro.test(Płaca)[1:2]),4),
+              Rozkład=ifelse(shapiro.test(Płaca)[2]>0.05,"Normalny","Inny")))) %>%  unnest_wider(temp)
+colnames(wynik)<-c("Płeć","Statystyka S-W","p-value","Rozkład")
+wynik
+```
+Czyli dalej analizujemy to testami nieparametrycznymi pod kątem tego czynika.
+
+2. Test na równość median dla populacji kobiet i mężczyzn.
+
+```{r Test na równość median dla populacji kobiet i mężczyzn}
+
+data.frame(wilcox.test(Dane$Płaca~Dane$Płeć)[c(1,3)],
+           "Mediany"=ifelse(wilcox.test(Dane$Płaca~Dane$Płeć)[3]>0.05,"Równe","Nierówne"))
+```
+Czyli __płeć__ jest czynnikiem mającym wpływ na pesję dlatego, że __p-value__<0.05. Mediany pensji w populacjach kobiet i mężczyzn nie są sobie równe - różnią się w sposób istotny statystycznie.
+
+3. Test na proporcjonalność rozkładu płeć vs wykształcenie.
+
+```{r Test na proporcjonalność rozkładu płeć vs wykształcenie}
+
+temp<-table(Dane$Wykształcenie,Dane$Płeć) #tabela krzyżowa
+chisq.test(temp)
+chisq.test(temp)$expected #krzyżowa tabela oczekiwana
+chisq.test(temp)$observed #krzyżowa tabela wejściowa
+```
+Ten test dla zmiennych jakościowych wykazał, że bazując na __p-value__<0.05, proporcjonalność rozkładu cechy wykszałcenie dla kobiet i mężczyzn nie jest taka sama.
+
+4. Test na rówość median dla wielu populacji. 
+Czy poziom wykształcenia ma wpływ na pensje?
+
+a) Test na normalność rozkładów płac z podziałem na wykształcenie.
+
+```{r Test na normalność rozkładów płacy z podziałem na wykształcenie}
+
+wynik<-Dane %>% group_by(Wykształcenie) %>% 
+  summarize(
+    temp=list(c(round(as.numeric(shapiro.test(Płaca)[1:2]),4),
+              Rozkład=ifelse(shapiro.test(Płaca)[2]>0.05,"Normalny","Inny")))) %>%  unnest_wider(temp)
+colnames(wynik)<-c("Wykształcenie","Statystyka S-W","p-value","Rozkład")
+wynik
+```
+Czyli dalej analizujemy to testami nieparametrycznymi pod kątem tego czynika.
+
+b) Test na rówość median dla wielu populacji.
+```{r Test na rówość median dla wielu populacji}
+
+kruskal.test(Dane$Płaca~Dane$Wykształcenie)
+pairwise.wilcox.test(Dane$Płaca,Dane$Wykształcenie,p.adj="bonf")
+library(ggplot2)
+ggplot(Dane,aes(y=Dane$Płaca,x=Dane$Wykształcenie))+geom_boxplot()
+```
+
+Nie różnią się tylko populacje wykształcenia na poziomie ___zasadniczym___ z ___podstawowym___ oraz ___średnim___ z ___średnim zawodowym___.
+
+## Estymacja przedziałowa pliku _03 - analiza płac.csv_
+
+Ile wynosi średnia pensja w każdej populacji różnych poziomów wyksztalcenia?
+
+```{r Estymacja przedzialowa pensji}
+
+Dane %>% group_by(Wykształcenie) %>% mutate(Ufność=qt(1-0.05/2,n()-1)*
+                  sd(Płaca)/sqrt(n()-1))  %>%
+  summarise(Dolna=mean(Płaca)-min(Ufność),Średnia=mean(Płaca),
+            Górna=mean(Płaca)+min(Ufność))
+```
+## Ćwiczenia
+
+a)	Dla zestawu danych 02 - dane.csv (wygenerowanych w poprzednich rozdziałach) wykorzystać znane miary statystyk opisowych do raportu ilości przepracowanych godzin z podziałem na przedziały wie-kowe, wykształcenie, płeć i rasę.
+b)	Raport z poprzedniego zadania podeprzeć histogramami i wykresami pudełkowymi,
+c)	Dla danych z poprzednich zadań pokazać liczbowo oraz na wykresie, czy jest jakaś zależność między wiekiem a ilością przepracowanych godzin w tygodniu.
+d)	Dla danych z poprzedniego zadania wykonać estymację przedziałową średniego wieku kobiet i męż-czyzn dodając także podział na poziom wykształcenia i rasę.
+e)	Wczytaj plik 03 - kredyty.xls.
+f)	Przekoduj zmienne czynnikowe (Limit_na_karcie, Plec (1 = mężczyzna; 2 = kobieta), Stan_cywilny (1 = w_zwiazku; 2 = kawaler_panna; 3 = inny), Wykształcenie (1 = podstawowe; 2 = wyższe; 3 = śred-nie; 4 = inne), Wiek (podany w latach).
+g)	Usuń wartości odstające w każdej grupie (Płeć/Wykształcenie/Stan_cywilny).
+h)	Sprawdź, czy dane mają rozkład normalny.
+i)	Zbadaj, czy czynniki Płeć/Wykształcenie/Stan_cywilny mają wpływ na limit na karcie,
+j)	Jaki ma wpływ usuwanie skośności lub standaryzacja na wnioski z powyższej analizy.
+

@@ -1,0 +1,75 @@
+---
+title: "Rozdział 2 - ćwiczenia"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ćwiczenia
+
+1. Wczytaj plik _01 - adult.data_ oraz z pliku _01 - adult.names_ pobierz nazwy kolumn i przypisz do wiersza nagłówkowego. Wybierz nazwy dla każdej kolumny.
+
+```{r Wczytanie pliku}
+
+rm(list=ls())
+Dane<-read.table("./Dane/01 - adult.data",
+                 stringsAsFactors = T, sep = ",")
+Naglowek<-read.table("./Dane/01 - adult.names",
+                 stringsAsFactors = F, sep = ":",comment.char = "|")
+colnames(Dane)<-rownames(Naglowek)
+
+```
+
+2. Jakie typy danych ma każda kolumna?
+
+3. Zmień odpowiednią kolumnę na _Płeć_ z polskojęzycznymi danymi.
+
+```{r Zamiana nazwy kolumny Płeć}
+colnames(Dane)[colnames(Dane)=="sex"]<-"Płeć"
+levels(Dane$'Płeć')<-c("Kobieta","Mężczyzna")
+```
+
+4. Zmień odpowiednią kolumnę na _Kraj_ i wiersze ze znakiem zapytania na _brak danych_.
+
+```{r Zamiana nazwy kolumny na Kraj}
+colnames(Dane)[colnames(Dane)=="native-country"]<-"Kraj"
+levels(Dane$Kraj)[levels(Dane$Kraj)==" ?"]<-"brak danych"
+```
+
+5. Podaj średni wiek, ilość osób w grupach wynikających z pochodzenia (_Kraj_) i płci.
+
+```{r Podsumowanie po kraju i płci}
+tabela1<-aggregate(age~Kraj+`Płeć`,Dane,length)
+tabela2<-aggregate(age~Kraj+`Płeć`,Dane,function(x) round(mean(x),2))
+tabela<-merge(tabela1,tabela2,by.x=c("Kraj","Płeć"),by.y=c("Kraj","Płeć"))
+colnames(tabela)<-c("Kraj","Płeć","Ilość osób","Średni wiek")
+tail(tabela,n=8)
+```
+
+6. Wynik poprzedniego zadania zapisać w Excelu
+
+```{r Zapis do Excela}
+library(writexl)
+write_xlsx(tabela,"./Dane/01 - adult - raport.xlsx")
+```
+
+7. Oblicz ile osób pracuje więcej niż 40 godzin w tygodniu z podziałem na rasę.
+
+```{r Filtrowanie dla liczby godzin >40}
+aggregate(age~race,subset(Dane,Dane$`hours-per-week`>40),length)
+
+```
+
+8. Porównać rodowitych amerykanów z obywatelami USA o korzeniach polskich pod kątem ilości godzin pracy w tygodniu.
+
+9. Zapisz dane w postaci pliku csv o nazwie _02 - dane.csv_.
+
+```{r Zapis csv}
+write.csv(Dane,"./Dane/02 - dane.csv")
+```
+

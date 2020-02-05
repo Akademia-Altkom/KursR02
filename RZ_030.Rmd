@@ -1,0 +1,95 @@
+---
+title: "Rozdział 3 - ćwiczenia"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ćwiczenia
+
+1. Wczytaj plik csv _02 - dane.csv_ zapisany w poprzednim rozdziale.
+
+```{r Wczytanie pliku}
+
+rm(list=ls())
+Dane<-read.csv("./Dane/02 - dane.csv",
+                 stringsAsFactors = T, sep = ",")
+
+```
+
+2. Narysuj wykres kolumnowy ilości osób o poszczególnym pochodzeniu (_Kraj_).
+
+```{r Wykres kolumnowy}
+library(ggplot2)
+ggplot(Dane,aes(x=trimws(Kraj,"both")=="United-States",
+                fill=trimws(Kraj,"both")=="United-States"))+geom_bar()+
+  ggtitle("Ilość osób")+xlab("Pochodzenie")+ylab("Liczba")+
+  scale_x_discrete(labels = c("Inne","USA"))+
+  geom_text(aes(label=..count..),stat="count",vjust=-0.5)+
+  theme(legend.position = "off")
+```
+
+3. Narysuj wykres kolumnowy procentowy ilości osób o poszczególnym pochodzeniu (_Kraj_) z podziałem na kobiety i męzczyzn.
+
+```{r Wykres kolunowy grupowany}
+ggplot(Dane,aes(x=trimws(Kraj,"both")=="United-States",group=Płeć,fill=Płeć))+
+  geom_bar(aes(y=..count../sum(..count..)))+
+  ggtitle("Ilość osób")+xlab("Pochodzenie")+ylab("Liczba")+
+  scale_x_discrete(labels = c("Inne","USA"))+
+  geom_text(aes(label = scales::percent(..count../sum(..count..)),y= ..count../sum(..count..) ),stat= "count",position=position_stack(vjust=0.9))+
+  scale_y_continuous(labels=scales::percent)+theme(legend.position = "top")
+```
+
+4. Narysuj wykres kolumnowy ilości osób o poszczególnym pochodzeniu (_Kraj_) z podziałem na kobiety i męzczyzn i rasy.
+
+```{r Kolumnowy grupowany w podgrupach}
+ggplot(Dane,aes(x=trimws(Kraj,"both")=="United-States",group=Płeć,fill=Płeć))+
+  geom_bar()+  facet_grid(.~race)+
+  ggtitle("Ilość osób")+xlab("Pochodzenie")+ylab("Liczba")+
+  scale_x_discrete(labels = c("Inne","USA"))+
+  geom_text(aes(label = ..count..),stat="count",
+            position=position_stack(vjust=0.9))+
+  theme(legend.position = "top")
+```
+
+5. Narysuj wykres kołowy ilości osób o poszczególnym pochodzeniu (_Kraj_) z podziałem na kobiety i męzczyzn i rasy
+
+```{r Wykres kołowy w podgrupach}
+ggplot(Dane,aes(x=1,fill=Płeć))+
+  geom_bar(position="fill")+  
+  facet_grid((Kraj==" United-States")~race,
+             labeller = labeller(.rows=c("FALSE"="Inne", "TRUE"="USA")))+
+    coord_polar("y")+
+  ggtitle("Ilość osób")+ylab("Procentowa liczba osób")+
+  theme(legend.position = "top")+
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),axis.text.x=element_blank(),
+        axis.ticks.y=element_blank())
+```
+
+6. Narysuj wykres pudełkowy wieku osób o poszczególnym pochodzeniu (_Kraj_) z podziałem na kobiety i męzczyzn i rasy.
+
+```{r Wykres pudełkowy}
+ggplot(Dane,aes(y=age,fill=race))+
+  geom_boxplot()+  
+  facet_grid(Płeć~(Kraj==" United-States"),
+             labeller = labeller(.cols=c("FALSE"="Inne", "TRUE"="USA")))+
+  ggtitle("Wykres pudełkowy wieku Amerykanów")+ylab("Wiek osób")+xlab("Kraj")+
+  theme(legend.position = "top")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+
+7. Zapisz poprzedni wykres do pliku jpg.
+
+```{r Zapis do pliku jpg}
+ggsave("./Dane/02 - wykres.jpg")
+```
+

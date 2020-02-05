@@ -1,0 +1,81 @@
+---
+title: "Rozdział 10	Optymalizacja wykorzystania zasóbów komputera - obliczenia równoległe"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Biblioteka ___parallel___
+
+```{r Sprawdzenie liczby rdzeni}
+
+rm(list=ls())                 #usuwanie danych
+library(parallel)
+library(knitr)
+rdzenie<-detectCores()
+
+```
+
+Na tym komputerze mamy `r rdzenie` rdzeni. Aby sensownie na nim pracować zajmiemy `r rdzenie-1` rdzeni pozostawiając jeden na inne zadania.
+
+```{r Utworzenie klastra}
+
+klaster <- makeCluster(rdzenie-1)
+
+```
+
+Wykorzystując klaster zostanie pokazane rozwiązanie zadania polegającego na dopasowaniu do modelu regresji na zbiorze Anscombe'a (___https://pl.wikipedia.org/wiki/Kwartet_Anscombe%E2%80%99a___), 
+Utworzona funkcja ___alm()___, dla każdego wywołania, zbuduje próbę losową z  powtórzeniami i wyznaczy na niej współczynniki dla modelu y3~x3. Następnie użyjemy funkcji ___parLapply()___ aby powtórzyć tę operację 100 000 razy. 
+
+```{r Test bez zrównoleglenia}
+
+N<-100000                   #ilość powtórzeń
+alm <- function(i) {
+  tmp <- anscombe[sample(nrow(anscombe), replace = T),]
+  lm(y3~x3, data=tmp)$coef
+}
+wynik<-summary(system.time({
+  res <- lapply(1:N, alm)
+}))
+wynik<-as.data.frame(t(wynik))
+
+```
+
+Wynikiem funkcji ___parLapply()___ jest lista z wynikami poszczególnych wywołań funkcji ___alm()___. 
+
+```{r Test ze zrównolegleniem}
+
+w<-summary(system.time({
+  res <- parLapply(klaster, 1:N, alm)
+}))
+wynik<-rbind(wynik,t(w))
+rownames(wynik)<-c("1 rdzeń",paste(rdzenie-1,"rdzeni",sep=" "))
+
+kable(wynik)
+
+```
+
+```{r}
+
+```
+
+Funkcja ___parLapply()___ jako wynik zwraca listę wartości. Listę tę można uprościć czasem do wektora czasem do macierzy używając funkcji ___simplify2array()___. Aby nie kłopotać się tym dodatkowym wywołaniem, można zamiast ___parLapply()___ użyć ___parSapply()___.
+Po zakończeniu obliczeń równoległych należy pozamykać wiszące i zużywające RAM procesy. Aby zwinąć klaster można wykorzystać funkcję ___stopCluster()___.
+
+```{r Zamknięcie klastrów}
+
+stopCluster(klaster)
+
+```
+Jak widać obliczenia z wykorzystaniem `r rdzenie-1` rdzeni znacznie przyspieszyło obliczenia.
+
+# Ćwiczenia
+a) Wybierz funkcję, która krótko się liczy (np. model liniowy na 11 wierszach). Wykonaj ją tysiące razy i zobacz jak wygląda czas obliczeń jako funkcja liczby użytych rdzeni.
+b) Wybierz funkcję, która długo się liczy (np. model liniowy na tysiącach kolumn). Wykonaj ją kilkadziesiąt razy i zobacz jak wygląda czas obliczeń jako funkcja liczby użytych rdzeni.
+
+

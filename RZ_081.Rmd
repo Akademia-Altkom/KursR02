@@ -1,0 +1,80 @@
+---
+title: "Rozdział 8	Współpraca R z bazami danych  - ćwiczenia"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+1. Połaczenie z bazą danych MS Access przez pakiet DBI
+
+```{r Połaczenie z bazą danych MS Access przez pakiet DBI}
+
+rm(list=ls())                 #usuwanie danych
+library(dplyr)
+library(DBI)
+library(knitr)
+polaczenie <- dbConnect(odbc::odbc(), .connection_string = "Driver={Microsoft Access Driver (*.mdb, *.accdb)};Dbq=C:/OneDrive/OneDrive - Norbert Mielczarek/Projekty/Altkom/R - Analiza, przetwarzanie i wizualizacja danych/Skrypty R/Dane/09 - hurtownia.accdb", timeout = 10,encoding="CP1250")
+dbListTables(polaczenie) %>% as.data.frame() %>% rename(.,Tabele=.) %>% 
+  filter(grepl("MSys",Tabele)==F) %>% kable()
+kwerenda<-"SELECT TOP 3 * FROM tblKlienci"
+Dane<-dbGetQuery(polaczenie,kwerenda) %>% kable()
+dbListFields(polaczenie,"tblKlienci") %>% as.data.frame() %>% rename(.,Pole=.) %>% 
+  kable()
+dbDisconnect(polaczenie)
+
+``````
+2. Połączenie z bazą danych MS Access przez pakiet RODBC
+
+```{r Połaczenie z bazą danych MS Access przez pakiet RODBC}
+
+rm(list=ls())               #usuwanie danych
+library(RODBC)
+library(dplyr)
+#działa w wersji sesji R 32-bitowej
+polaczenie <- odbcConnectAccess2007("./Dane/09 - hurtownia.accdb")
+sqlTables(polaczenie) %>% filter(grepl("MSys",TABLE_NAME)==F) %>% kable()
+kwerenda<-"SELECT TOP 3 * FROM tblKlienci"
+Dane<-sqlQuery(polaczenie,kwerenda,max=0,stringsAsFactors=F) 
+head(Dane) %>% kable()
+close(polaczenie)
+
+``````
+3. Test szybkości
+
+```{r Test szybkości}
+rm(list=ls())               #usuwanie danych
+library(nycflights13)
+#działa w wersji sesji R 32-bitowej
+polaczenie <- odbcConnectAccess2007("C:/OneDrive/hurtownia2.accdb")
+Stat<-summary(system.time(
+  sqlSave(polaczenie, flights[,-19], tablename = "loty",
+          append=FALSE,rownames = FALSE)))
+Stat<-rbind(Stat,summary(system.time(
+  Dane<-sqlQuery(polaczenie,"SELECT * FROM loty"))))
+sqlDrop(polaczenie,"loty")
+close(polaczenie)
+
+polaczenie <- dbConnect(odbc::odbc(), .connection_string = "Driver={Microsoft Access Driver (*.mdb, *.accdb)};Dbq=C:/OneDrive/hurtownia2.accdb")
+Stat<-rbind(Stat,summary(system.time(
+  dbWriteTable(polaczenie, "loty", flights[,-19],batch_row=1,overwrite=T))))
+Stat<-rbind(Stat,summary(system.time(
+  Dane<-dbGetQuery(polaczenie,"SELECT * FROM loty"))))
+dbSendQuery(polaczenie,"DROP TABLE loty")
+dbDisconnect(polaczenie)
+
+rownames(Stat)<-c("RODBC-zapis","RODBC-odczyt","DBI-zapis","DBI-odczyt")
+kable(Stat)
+
+``````
+
+
+# Ćwiczenia
+a) Podłącz się do dowolnego serwera (MS SQLServer,Oracle...) i wykonaj test szybkości zapisu i odczytu porównując opisane biblioteki,
+b) Wyślij na serwer wszystkie tabele bazy danych ___09 - hurtownia.accdb___,
+c) Wykonaj analizę i wizualizację danych wysłanych na serwer związanych z obrotami klientów,
+

@@ -1,0 +1,115 @@
+---
+title: "Rozdział 6 Prognozowanie szeregów czasowych - ćwiczenia"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Wczytanie i transformacja danych
+
+```{r Wczytanie i transformacja danych}
+
+library(forecast)
+library(dplyr)
+rm(list=ls())                               #usuwanie danych
+Dane<-read.table("./Dane/08 - temperatura.csv",h=T,sep=",")
+szereg<-Dane %>% filter(Source=="GISTEMP") %>% select(Data=Date,Temp=Mean) %>% 
+  arrange(Data)
+szereg<-ts(szereg$Temp,start=1880,frequency = 12)
+
+```
+
+GISTEMP to indeks __Global Surface Temperature__ opublikowany przed __NASA Goddard Institute for Space Studies (GISS)__, w którym dane to odchylenie między średnią temperaturą powierzchni Ziemii oraz średnią z temperatur odnotowanych między rokiem 1951 i 1980.
+
+2. Budowanie modeli prognostycznych
+
+```{r Budowanie modeli prognostycznych}
+szeregUcz<-ts(szereg[-((length(szereg)-23):length(szereg))],
+              start=1880,frequency = 12)
+szeregTest<-ts(szereg[((length(szereg)-23):length(szereg))],
+              start=2015,frequency = 12)
+mNaiwny<-snaive(szeregUcz)
+mWinterADD<-hw(szeregUcz,seasonal = "additive")
+#mWinterMUL<-hw(szeregUcz,seasonal = "multiplicative") #nie działa dla tych danych
+mDekomp<-stlm(szeregUcz)
+mArima<-auto.arima(szeregUcz)
+mTBATS<-tbats(szeregUcz)
+mNeuron<-nnetar(szeregUcz,size=24)
+
+```
+
+3. Tabela błędów
+
+```{r Tabela błędów}
+
+ERRORS<-accuracy(forecast(mNaiwny,h=24),szeregTest[1:24])["Test set",]
+ERRORS<-rbind(ERRORS,
+              accuracy(forecast(mWinterADD,h=24),szeregTest[1:24])["Test set",])
+ERRORS<-rbind(ERRORS,
+              accuracy(forecast(mDekomp,h=24),szeregTest[1:24])["Test set",])
+ERRORS<-rbind(ERRORS,
+              accuracy(forecast(mArima,h=24),szeregTest[1:24])["Test set",])
+ERRORS<-rbind(ERRORS,
+              accuracy(forecast(mTBATS,h=24),szeregTest[1:24])["Test set",])
+ERRORS<-rbind(ERRORS,
+              accuracy(forecast(mNeuron,h=24),szeregTest[1:24])["Test set",])
+rownames(ERRORS)<-c("Naiwna z sezon","Winters Add","Dekompozycja",
+                    "ARIMA","TBATS","Sieć neuronowa")
+ERRORS<-data.frame(ERRORS)
+library(knitr)
+kable(ERRORS,digits=4)
+
+```
+
+4.  Wizualizacja modelu
+
+```{r Wizualizacja modelu}
+
+library(ggplot2)
+ggseasonplot(szereg,year.labels=TRUE, year.labels.left=TRUE)
+ggmonthplot(szereg)
+autoplot(szereg) +
+  autolayer(forecast(mNaiwny,h=24),series="Naiwny z sezon", PI=FALSE) +
+  autolayer(forecast(mWinterADD,h=24),series="Winters Add", PI=FALSE) +
+  autolayer(forecast(mDekomp,h=24),series="Dekompozycja", PI=FALSE) +
+  autolayer(forecast(mArima,h=24),series="ARIMA", PI=FALSE) +
+  autolayer(forecast(mTBATS,h=24),series="TBATS", PI=FALSE) +
+  autolayer(forecast(mNeuron,h=24),series="Sieć neuron.", PI=FALSE) +
+  ggtitle("GISTEMP") +
+  coord_cartesian(xlim=c(2005,2018),ylim=c(0.3,1.3))+
+  xlab("Rok") +ylab("Odchylenie temp.")+
+  guides(colour=guide_legend(title="Prognoza"))
+
+
+autoplot(szereg)+autolayer(mNeuron$fitted,series="Sieć neuron")+
+  xlab("Rok") +ylab("Odchylenie temp.")+
+  coord_cartesian(xlim=c(2005,2018),ylim=c(0.3,1.3))+
+  guides(colour=guide_legend(title="Metoda"))+theme(legend.position = "top")
+
+```
+
+5. Wizualizacja błedów
+
+```{r Wizualizacja błedów}
+
+ggplot(ERRORS,aes(y=RMSE,x=rownames(ERRORS),fill=RMSE>min(RMSE)))+
+  geom_bar(stat = "identity")+
+  geom_text(aes(label=round(RMSE,2)),position=position_fill(vjust=0))+
+  theme(legend.position = "off")+xlab("Metoda") +ylab("RMSE [stopnie C]")
+ggplot(ERRORS,aes(y=MAPE,x=rownames(ERRORS),fill=MAPE>min(MAPE)))+
+  geom_bar(stat = "identity")+
+  theme(legend.position = "off")+xlab("Metoda") +ylab("MAPE [%]")+
+  geom_text(aes(label=round(MAPE,2)),position=position_fill(vjust=2))
+
+```
+# Ćwiczenia
+a) Wykonaj prognozowanie temperatury bazując na poprzednim ćwiczeniu ogranicając dane, na których model się uczy do ostatnich 10 lat,
+b) Wykonaj prognozowanie przewiezionych pasażerów linii lotniczych - zestaw __AirPassengers__,
+c) Wykonaj prognozowanie plam na Słońcu - zestaw __sunspots.month__,
+
